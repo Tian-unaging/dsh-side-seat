@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="420" viewBox="0 0 880 420" font-family="Segoe UI, Microsoft YaHei, sans-serif">
+  <title>旁座 SideSeat 预览</title>
+  <rect width="880" height="420" rx="16" fill="#F6F5F2"/>
+  <!-- sidebar -->
+  <rect x="16" y="16" width="200" height="388" rx="12" fill="#ECEAE4"/>
+  <text x="36" y="52" font-size="15" fill="#2F3437" font-weight="600">DeepSeek Harness</text>
+  <rect x="32" y="72" width="168" height="28" rx="6" fill="#E2DFD8"/><text x="44" y="91" font-size="13" fill="#2F3437">旁座</text>
+  <rect x="32" y="108" width="168" height="28" rx="6" fill="#ECEAE4"/><text x="44" y="127" font-size="13" fill="#6B6F73">某个工作区会话</text>
+  <g transform="translate(32 316)">
+    <rect width="168" height="36" rx="8" fill="#E2DFD8"/>
+    <g transform="translate(12 9)" stroke="#2F3437" stroke-width="1.6" stroke-linecap="round" fill="none"><path d="M5 2v8"/><path d="M5 10h8"/><path d="M5 10l-1 7"/><path d="M13 10l1 7"/><path d="M5 4.5c1.2-.5 2.3-.5 3.2 0"/></g>
+    <circle cx="28" cy="10" r="4" fill="#E5484D"/>
+    <text x="40" y="23" font-size="13" fill="#2F3437">旁座</text>
+  </g>
+  <g transform="translate(32 360)"><text x="12" y="20" font-size="13" fill="#6B6F73">设置</text></g>
+  <!-- conversation -->
+  <rect x="232" y="16" width="632" height="388" rx="12" fill="#FFFFFF"/>
+  <text x="256" y="52" font-size="15" fill="#2F3437" font-weight="600">旁座</text>
+  <rect x="256" y="76" width="340" height="44" rx="10" fill="#F1F0EC"/>
+  <text x="272" y="103" font-size="14" fill="#2F3437">这个回头是在等谁</text>
+  <rect x="560" y="140" width="280" height="44" rx="10" fill="#E8EEF9"/>
+  <text x="576" y="167" font-size="14" fill="#2F3437">我也觉得，再看看</text>
+  <rect x="256" y="300" width="584" height="52" rx="12" fill="#FFFFFF" stroke="#D9D6CF"/>
+  <text x="272" y="331" font-size="13" fill="#9A9DA0">和旁座说点什么…</text>
+  <circle cx="420" cy="376" r="3" fill="#E5484D"/>
+  <text x="430" y="380" font-size="12" fill="#6B6F73"><tspan font-weight="600" fill="#2F3437">正在看你的屏幕</tspan> · 能听到声音 · 听不见台词 · 已 12 分钟 · 说 1 句 · 暂停 · 停止</text>
+</svg>

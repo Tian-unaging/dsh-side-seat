@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "SideSeat",
+    "description": "An agent that sits next to you: when opened it watches your screen with you and occasionally says one line in its own session; otherwise it waits in the workspace and looks at things only when you ask. Never drives, never finishes it for you — just sits on your side."
+  }
+}

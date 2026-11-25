@@ -1,0 +1,76 @@
+{
+  "name": "dsh-side-seat",
+  "version": "1.0.20",
+  "description": "旁座 SideSeat：一个能看着你的屏幕、陪你一起看、也能被你叫去看看东西的 DeepSeek Harness 智能体插件。",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "screen",
+    "companion",
+    "vision"
+  ],
+  "license": "MIT",
+  "icon": "./icon.svg",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "src",
+    "test",
+    "locale/*.json",
+    "docs/*.md",
+    "docs/*.svg",
+    "icon.svg",
+    "overlay",
+    "cordis.patch.yml",
+    "README.md",
+    "SECURITY.md",
+    "FIXES.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "dshCompat": {
+    "harness": ">=0.2.2-rc.5 <0.3.0",
+    "platform": "win32",
+    "node": ">=22.19.0"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/dsh-tools": ">=0.2.2-rc.5 <0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/schemastery": { "optional": true },
+    "@deepseek-ai/dsh-tools": { "optional": true }
+  },
+  "scripts": {
+    "test": "node test/selfcheck.mjs",
+    "selfcheck": "node test/selfcheck.mjs"
+  }
+}

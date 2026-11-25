@@ -1,0 +1,11 @@
+# dsh-side-seat（旁座）bundle patch：只插入 Host 半边这一行。
+#
+# - id 即 settings 命名空间（side-seat）：Config 里带 .volatile() 的字段由 Loader
+#   自动派生出这个命名空间，设置页通过 ctx.configForms.get('side-seat') 读写。
+# - name 与安装包名一致（dsh-side-seat），Loader 从 profile 的 node_modules 解析。
+# - 浏览器半边由 package.json 的 dsh.client 声明，client-modules 按包名发现并加载
+#   ./client（window.__ModuleLoader__ 包，id = dsh-side-seat），这里不另写行。
+# - 不禁用、不改写任何别的插件行（零冲突契约 #3 #5）。
+- insert:
+    - id: side-seat
+      name: dsh-side-seat
