@@ -12,6 +12,15 @@
     "vision"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tian-unaging/dsh-side-seat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tian-unaging/dsh-side-seat/issues"
+  },
+  "homepage": "https://github.com/Tian-unaging/dsh-side-seat#readme",
+  "private": false,
   "icon": "./icon.svg",
   "type": "module",
   "main": "./index.js",
