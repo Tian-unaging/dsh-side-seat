@@ -1,1 +1,2 @@
-203cc2788c0d9d1f95f3b2bef60bea50a824b1cae3f1a0e581f72c3900eb01d9  dsh-side-seat-1.0.21.tgz
+f3e985f041a0c208403efff702adb633ac1a641b2fc921678322ea1588f98b63  dsh-side-seat-1.0.21.tgz
+

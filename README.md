@@ -42,7 +42,7 @@
 
    **PowerShell**
    ```powershell
-   Get-FileHash .\dsh-side-seat-1.0.20.tgz -Algorithm SHA256
+   Get-FileHash .\dsh-side-seat-1.0.21.tgz -Algorithm SHA256
    ```
    **macOS / Linux**
    ```bash
@@ -52,7 +52,7 @@
 3. 安装：
 
    ```
-   dsh plugin --profile <你的 profile> add ./dsh-side-seat-1.0.20.tgz
+   dsh plugin --profile <你的 profile> add ./dsh-side-seat-1.0.21.tgz
    ```
 
    或者用 DSH 的 **Plugins → Add plugin** 选中这个 `.tgz`。
