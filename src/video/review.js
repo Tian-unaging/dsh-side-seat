@@ -128,15 +128,28 @@ export async function runReview({ vision, asr, cfg, source, angle = 'story', len
     '索引：',
     ...index.slice(0, 400),
   ].join('\n')
-  const res = await vision.ask({ model: cfg.visionModel, system, text, maxTokens: length === 'long' ? 3000 : length === 'short' ? 900 : 1800, temperature: 0.7, signal, kind: 'review' })
-  const raw = String(res?.text || '')
-  // 全被过滤时，日志里必须能看到模型到底写了什么
-  try { appendLog('video.log', `review raw len=${raw.length} head=${JSON.stringify(raw.slice(0, 200))}`) } catch { /* ignore */ }
+  const budget = length === 'long' ? 3000 : length === 'short' ? 900 : 1800
+  const askOnce = (maxTokens) => vision.ask({ model: cfg.visionModel, system, text, maxTokens, temperature: 0.7, signal, kind: 'review' })
+  let res = await askOnce(budget)
+  let raw = String(res?.text || '')
+  // 空返回重试一次：模型偶发只吐推理、不吐正文（复现：4 秒纯色测试片上 raw len=0）。
+  // 不重试就会把「模型没说话」误报成「写出来的句子都没出处」，用户根本不知道发生了什么。
+  if (!raw.trim()) {
+    res = await askOnce(Math.round(budget * 1.6))
+    raw = String(res?.text || '')
+  }
+  // 全被过滤 / 空返回时，日志里必须能看到模型到底写了什么、烧了多少 token
+  try {
+    appendLog('video.log', `review raw len=${raw.length} usage=${JSON.stringify(res?.usage || null)} head=${JSON.stringify(raw.slice(0, 200))}`)
+  } catch { /* ignore */ }
   const { text: article, dropped } = enforceCitations(raw)
   const notes = []
   if (dropped) notes.push(`已删掉 ${dropped} 句没有出处的话`)
   if (!transcript.cues.length) notes.push(`没有台词依据：${transcript.note || '未配置听写引擎'}，本文只基于画面`)
   else if (transcript.cloud) notes.push('台词来自云端转写')
   if (transcript.note && transcript.cues.length) notes.push(transcript.note)
-  return [article || '（模型没有写出任何带出处的句子）', '', notes.length ? `—— ${notes.join('；')}` : ''].join('\n').trim()
+  const body = article || (raw.trim()
+    ? '（模型写出的句子都没有自带出处，已按规则全部删掉）'
+    : '模型这次没有返回内容。可以再试一次；若反复出现，换一个视觉模型，或把篇幅调小。')
+  return [body, '', notes.length ? `—— ${notes.join('；')}` : ''].join('\n').trim()
 }

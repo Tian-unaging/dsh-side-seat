@@ -111,13 +111,26 @@ function onPath(names) {
   return null
 }
 
+/** profile 里 @ffmpeg-installer 安装的那个平台包目录名。 */
+function ffmpegInstallerDir() {
+  const arch = process.arch
+  if (process.platform === 'win32') return `win32-${arch}`
+  if (process.platform === 'darwin') return `darwin-${arch}`
+  return `linux-${arch}`
+}
+
 function candidates(base) {
   const exe = process.platform === 'win32' ? `${base}.exe` : base
   const home = process.env.USERPROFILE || process.env.HOME || ''
   const local = process.env.LOCALAPPDATA || ''
+  const profile = process.env.DSH_PROFILE_DIR || ''
   return [
     // 插件自己下载的那份优先，这样「在设置里点安装」立刻生效
     join(dshHome(), 'plugins-data', 'side-seat', 'bin', exe),
+    // DSH 侧常见的两个落点：别的插件（如初始化工具包）会把 ffmpeg 放到 ~/.dsh/tools，
+    // profile 里也可能装着 @ffmpeg-installer。二者都不在 PATH 上，必须显式找。
+    join(dshHome(), 'tools', 'ffmpeg', 'bin', exe),
+    profile && join(profile, 'node_modules', '@ffmpeg-installer', ffmpegInstallerDir(), exe),
     local && join(local, 'Microsoft', 'WinGet', 'Links', exe),
     join('C:\\ffmpeg\\bin', exe),
     'C:\\Program Files\\ffmpeg\\bin\\' + exe,
@@ -164,8 +177,8 @@ export function requireFfmpeg() {
     } catch { /* ignore */ }
     throw new SideSeatError(
       'NO_FFMPEG',
-      '这一项需要 ffmpeg，但本机没有找到（PATH 上没有 ffmpeg）。',
-      '装好 ffmpeg 后重试，或设置环境变量 DSH_SIDE_SEAT_FFMPEG 指向 ffmpeg.exe。看屏幕（target=screen）与实时陪看不需要 ffmpeg。',
+      '这一项需要 ffmpeg，但本机没有找到（PATH、~/.dsh/tools、profile 的 @ffmpeg-installer 与常见安装位置都没有）。',
+      '在设置页点「安装 ffmpeg」，或把它放到 PATH 上，或设置环境变量 DSH_SIDE_SEAT_FFMPEG 指向 ffmpeg.exe。看屏幕（target=screen）与实时陪看不需要 ffmpeg。',
     )
   }
   return ffmpeg

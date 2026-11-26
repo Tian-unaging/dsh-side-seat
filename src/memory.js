@@ -42,6 +42,14 @@ export const PATCH_SCHEMA = {
     nickname: (v) => str(v, 20),
     intimacy: (v) => (Number.isFinite(Number(v)) ? Math.min(1, Math.max(0, Number(v))) : undefined),
     quietMode: (v) => (typeof v === 'boolean' ? v : undefined),
+    // 每小时主动说话预算：设置页也能改，模型这边允许 0–240（0 = 不说话）
+    speakBudgetPerHour: (v) => {
+      if (typeof v === 'boolean' || v === null || v === undefined) return undefined
+      const raw = typeof v === 'string' ? v.trim() : v
+      if (raw === '') return undefined
+      const n = Number(raw)
+      return Number.isFinite(n) ? Math.min(240, Math.max(0, Math.round(n))) : undefined
+    },
   },
   shared: {
     title: (v) => str(v, 80),

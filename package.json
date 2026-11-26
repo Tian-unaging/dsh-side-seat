@@ -1,6 +1,6 @@
 {
   "name": "dsh-side-seat",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "旁座 SideSeat：一个能看着你的屏幕、陪你一起看、也能被你叫去看看东西的 DeepSeek Harness 智能体插件。",
   "keywords": [
     "dsh-plugin",

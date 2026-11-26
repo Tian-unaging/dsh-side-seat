@@ -8,7 +8,7 @@
  *   - 假宿主上的 apply()：四个工具的名字、参数形态、返回值契约（text 必须是字符串，坑 1）
  *   - 路由与信任围栏、诚实降级、会话与人格段作用域、观察循环（假截屏）、卸载
  */
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -30,6 +30,8 @@ const asr = await import('../src/audio/asr.js')
 const review = await import('../src/video/review.js')
 const compat = await import('../src/compat.js')
 const config = await import('../src/config.js')
+const media = await import('../src/media.js')
+const memoryMod = await import('../src/memory.js')
 
 /* ---------------- 纯逻辑 ---------------- */
 ok(util.fmtTime(754) === '12:34', 'fmtTime')
@@ -66,6 +68,49 @@ ok(config.budgetFor('game', 'chatty') === 120, 'budget: game+chatty = 30s/line')
 ok(config.budgetFor('movie', 'chatty') === 6, 'budget: movie+chatty = 10min/line')
 ok(config.budgetFor('browse', 'normal') === 15, 'budget: browse+normal = 4min/line')
 ok(config.readConfig({ mode: { get: () => 'game' }, chattiness: { get: () => 'chatty' } }).budgetPerHour === 120, 'volatile config read: mode+chattiness -> budget')
+
+/* ---------------- ffmpeg 定位 ---------------- */
+// 真机教训：ffmpeg 常常既不在 PATH 上、也不在插件自己的 bin 里，
+// 而是被别的插件放到 ~/.dsh/tools/ffmpeg/bin，或者作为 @ffmpeg-installer 装在 profile 里。
+// 测试期间清空 PATH 与相关环境变量，确保命中的是候选表而不是本机碰巧装了 ffmpeg。
+const exeName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+const savedPath = process.env.PATH
+const savedEnv = ['DSH_SIDE_SEAT_FFMPEG', 'DSH_FFMPEG_PATH', 'DSH_VIDEO_FFMPEG', 'FFMPEG_PATH']
+  .map((key) => [key, process.env[key]])
+process.env.PATH = ''
+process.env.Path = ''
+for (const [key] of savedEnv) delete process.env[key]
+
+const toolsBin = join(process.env.DSH_HOME, 'tools', 'ffmpeg', 'bin')
+mkdirSync(toolsBin, { recursive: true })
+writeFileSync(join(toolsBin, exeName), '')
+media.resetBinaryCache()
+ok(media.findBinary('ffmpeg') === join(toolsBin, exeName), 'ffmpeg found in $DSH_HOME/tools/ffmpeg/bin')
+
+const fakeProfile = join(process.env.DSH_HOME, 'fake-profile')
+const installerPkg = process.platform === 'win32'
+  ? `win32-${process.arch}`
+  : `${process.platform === 'darwin' ? 'darwin' : 'linux'}-${process.arch}`
+const installerBin = join(fakeProfile, 'node_modules', '@ffmpeg-installer', installerPkg)
+mkdirSync(installerBin, { recursive: true })
+writeFileSync(join(installerBin, exeName), '')
+rmSync(toolsBin, { recursive: true, force: true })   // 让上一条候选消失，验证 profile 这条真的生效
+process.env.DSH_PROFILE_DIR = fakeProfile
+media.resetBinaryCache()
+ok(media.findBinary('ffmpeg') === join(installerBin, exeName), 'ffmpeg found in profile @ffmpeg-installer')
+delete process.env.DSH_PROFILE_DIR
+
+process.env.PATH = savedPath
+if (savedPath !== undefined) process.env.Path = savedPath
+for (const [key, value] of savedEnv) if (value !== undefined) process.env[key] = value
+media.resetBinaryCache()
+
+/* ---------------- bond 可写字段 ---------------- */
+ok(memoryMod.validatePatch('bond', { speakBudgetPerHour: 45 }).clean.speakBudgetPerHour === 45, 'bond.speakBudgetPerHour writable')
+ok(memoryMod.validatePatch('bond', { speakBudgetPerHour: '45' }).clean.speakBudgetPerHour === 45, 'bond.speakBudgetPerHour accepts numeric string')
+ok(memoryMod.validatePatch('bond', { speakBudgetPerHour: 999 }).clean.speakBudgetPerHour === 240, 'bond.speakBudgetPerHour clamps to 240')
+ok(memoryMod.validatePatch('bond', { speakBudgetPerHour: true }).ok === false, 'bond.speakBudgetPerHour rejects boolean')
+ok(memoryMod.validatePatch('bond', { nickname: '阿旁' }).clean.nickname === '阿旁', 'bond.nickname still writable')
 
 /* ---------------- 假宿主 ---------------- */
 const registered = []
@@ -178,6 +223,48 @@ await obs.feedback('annoying'); await obs.feedback('annoying')
 ok(memory.bond().annoyedUntil > Date.now(), 'two "annoying" -> 10 min silence')
 await obs.stop()
 ok(!obs.snapshot().observing, 'stopped')
+
+/* ---------------- 视觉路由回退（真机教训） ----------------
+ * 宿主里 llm-deepseek（deepseek-official）排在 llm-deepseek-account 之前，而前者的
+ * DEEPSEEK_API_KEY 可能是失效的。自动探测若「取第一个能看图的模型就锁死」，整块看图
+ * 能力会全废（实测：每次 look 都报 Your api key … is invalid）。 */
+const routeCalls = []
+const manyProviders = {
+  listProviders() { return [{ id: 'stale', name: 'Stale' }, { id: 'good', name: 'Good' }] },
+  async listModels(provider) { return [{ provider, id: 'vision-x', inputModalities: ['text', 'image'] }] },
+  async resolveModelInfo() { return { inputModalities: ['text', 'image'] } },
+  stream(req) {
+    routeCalls.push(req.provider)
+    if (req.provider === 'stale') {
+      return (async function* () {
+        yield { type: 'finish', reason: { kind: 'error', failure: { code: 'AUTH', message: 'Your api key is invalid' } } }
+      })()
+    }
+    return (async function* () {
+      yield { type: 'text-delta', text: 'ok-from-good' }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    })()
+  },
+}
+const visionCtx = { get: (n) => (n === 'llm' ? manyProviders : n === 'attachments' ? services.attachments : undefined) }
+const routed = createVision(visionCtx)
+const viaFallback = await routed.ask({ text: '看图', images: [{ bytes: Buffer.from('jpeg'), name: 'a.jpg' }], kind: 'look' })
+ok(viaFallback.text === 'ok-from-good', 'auto route falls back after an auth failure')
+ok(routeCalls.join(',') === 'stale,good', `fallback order: ${routeCalls.join(',')}`)
+routeCalls.length = 0
+const second = await routed.ask({ text: '再看', images: [{ bytes: Buffer.from('jpeg'), name: 'b.jpg' }], kind: 'look' })
+ok(second.text === 'ok-from-good' && routeCalls.join(',') === 'good', 'working route is pinned, stale one is not retried')
+routeCalls.length = 0
+let explicitError = null
+try { await routed.ask({ model: 'stale:vision-x', text: '看一下', images: [{ bytes: Buffer.from('jpeg'), name: 'c.jpg' }] }) } catch (error) { explicitError = error }
+ok(Boolean(explicitError) && routeCalls.join(',') === 'stale', 'explicit model never silently falls back')
+ok(Boolean(explicitError) && explicitError.message.includes('stale:vision-x'), 'route id is named in the error message')
+ok((await routed.checkModel('')).supported === true, 'checkModel: any usable candidate counts as supported')
+ok(routed.lastRoute() === 'good:vision-x', 'diagnostics report the route that works')
+
+/* ---------------- 本地文件/记忆路径的其余回归 ----------------
+ * 只断言「不抛、返回字符串、不误报成功」，避免把宿主行为写成测试依赖。 */
+ok(typeof memoryMod.PATCH_SCHEMA.bond.speakBudgetPerHour === 'function', 'bond patch schema exposes speakBudgetPerHour')
 
 for (const d of effects.reverse()) if (typeof d === 'function') await d()
 ok(true, 'dispose')

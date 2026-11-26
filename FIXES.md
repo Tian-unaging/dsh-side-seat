@@ -168,3 +168,78 @@ resume failed: stored log is corrupt: SessionFormatError:
 
 同时移除了 `speak.greet()`，避免留一段没人调用的死代码。
 
+---
+
+## 15 · 视觉路由「取第一个能看图的模型」= 把整块能力锁死在失效路线上（**阻断**）
+
+真机（0.2.2-rc.5 / Windows / 另一个装了官方 route 的 profile）实测：`side_seat_look`
+每次都是
+
+```
+模型报错：Authentication Fails, Your api key: ****1aa7 is invalid
+```
+
+根因链：
+
+1. `dsh-base/cordis.patch.yml` 里 `llm-deepseek`（provider `deepseek-official`，读
+   `DEEPSEEK_API_KEY`）排在 `llm-deepseek-account` **之前**；
+2. `resolveRoute()` 按 `listProviders()` 顺序取**第一个**声明 `image` 的模型并缓存，
+   于是选中了官方 api-key 路线，而该 key 已失效；
+3. `deepseek-account` 路线从不回退到 API key，所以真正可用的路线一次都没被试过。
+
+验证方法（决定性）：临时把 `visionModel` 指成 `deepseek-account:deepseek-flash`，
+同一个 `look` 立刻成功并读出了屏幕内容 —— 说明不是截屏、不是附件、不是模型能力问题。
+
+修复（`src/vision.js`）：
+
+- 自动探测改成**候选列表**：每个 provider 各取一个能看图的模型，不只看第一个命中的；
+- `ask()` 按候选顺序试，**认证类失败**（`AUTH` / `*_CREDENTIAL` / `ACCOUNT_*` /
+  `MODEL_NO_VISION` 等）换下一条；配额、限流、网络错误不换路（换也没用）；
+- 成功的路由记住并排到最前，下次不再先撞一次墙（失效路线的每次尝试都是一次真实 API 调用）；
+- 显式写了 `providerId:modelId` 时**不换路**，忠实报错；
+- 所有模型错误都带上路由 id，例如 `模型报错（deepseek-official:deepseek-flash）：…`，
+  否则用户只知道「密钥无效」，不知道是哪条路线；
+- 图片附件只登记一次，回退不重复写；
+- 诊断里多了 `visionRoute`，设置页「状态」能直接看到当前走哪条路由。
+
+## 16 · ffmpeg 只认 PATH，漏掉 DSH 自己的两个落点
+
+`side_seat_caption` / `side_seat_review` 报「本机没有找到 ffmpeg」，但本机其实有两份：
+
+- `~/.dsh/tools/ffmpeg/bin/ffmpeg.exe`（初始化类插件部署的）
+- `~/…/.dsh/profiles/<profile>/node_modules/@ffmpeg-installer/win32-x64/ffmpeg.exe`
+
+原来的候选表只有 PATH、`plugins-data/side-seat/bin`、WinGet、`C:\ffmpeg\bin`、scoop。
+
+修复（`src/media.js`）：候选表补上 `$DSH_HOME/tools/ffmpeg/bin` 与
+`$DSH_PROFILE_DIR/node_modules/@ffmpeg-installer/<platform>-<arch>`；
+找不到时的提示也改成「PATH、~/.dsh/tools、profile 的 @ffmpeg-installer 都没有」并指向设置页的安装按钮。
+
+> 副作用（符合设计顺序 A→B→C）：ffmpeg 一旦能找到，截屏后端会从 C（常驻 PowerShell）
+> 切到 B（ffmpeg gdigrab）。实测可用，帧率与延迟都正常。
+
+## 17 · `bond` 读得到、改不了的字段
+
+`side_seat_profile` 返回的 bond 里有 `speakBudgetPerHour`，但 `PATCH_SCHEMA.bond`
+没列它 —— update 时被静默忽略（返回「忽略了不在 schema 内的字段」）。
+修复：`speakBudgetPerHour` 接受 0–240 的整数（也接受数字字符串），越界夹紧，布尔/空值拒收。
+
+## 18 · 两处「报错文案会骗人」的小毛病
+
+- `side_seat_review`：模型偶发只吐推理、不吐正文（复现：4 秒纯色测试片 `raw len=0`），
+  原来会显示「（模型没有写出任何带出处的句子）」，把「模型没说话」说成「句子没出处」。
+  改为：空返回先重试一次（预算 ×1.6），仍空则明确说「模型这次没有返回内容，可以再试一次」；
+  日志同时记 `usage`，方便判断是被 maxTokens 截断还是模型没理人。
+- 侧边栏入口：点开面板会顺手 `ensureSession()`，只想看一眼状态也会在多出一个空会话。
+  改为打开面板不建会话，建会话留给「打开旁座会话」按钮与「开始看屏幕」。
+
+## 验证结果（本轮）
+
+| 套件 | 结果 |
+|---|---|
+| `node test/selfcheck.mjs` | **57 passed, 0 failed**（新增 15 条：路由回退 / 路由钉住 / 显式不换路 / 错误带路由 / ffmpeg 两处落点 / bond 字段） |
+| 真机安装 | `application: applied`，路由 21/21，工具 4 个，客户端插槽 6 个 active |
+| 真机功能 | `look screen` ✅（无需任何配置覆盖，自动回退到可用路由）、`look file` 图片 ✅、`caption` ✅（找到 ffmpeg 后正常出 csv）、`review` ✅（真片带出处）、`profile` 读写 ✅、`memory` 跨调用保留 ✅ |
+| 安全 | 无授权请求 `/api/side-seat/*` → 403 `host-fence` ✅；截屏进程用完即回收 ✅ |
+
+

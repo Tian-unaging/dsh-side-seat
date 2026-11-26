@@ -816,7 +816,9 @@ function SidebarAction(props) {
     onClick: function () {
       var open = !ui.get().panelOpen;
       ui.set({ panelOpen: open, message: "" });
-      if (open) { loadSettings(); ensureSession(); kick(); }
+      // 打开面板本身不建会话：只想看一眼状态的人，不该在侧边栏多出一个空会话。
+      // 建会话留给「打开旁座会话」按钮和「开始看屏幕」（startObserving 里也会 ensureSession）。
+      if (open) { loadSettings(); kick(); }
     }
   },
     h(ChairIcon, null),

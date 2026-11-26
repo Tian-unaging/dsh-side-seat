@@ -98,6 +98,7 @@ export async function apply(ctx, config) {
       supported: SUPPORTED_TEXT,
       platform: platformStatus(),
       model,
+      visionRoute: typeof vision.lastRoute === 'function' ? vision.lastRoute() : null,
       capture: { backend: capture.backend, label: capture.backendLabel, attempts: capture.attempts, lastError: capture.lastError },
       ffmpeg: Boolean(findBinary('ffmpeg')),
       ffprobe: Boolean(findBinary('ffprobe')),
